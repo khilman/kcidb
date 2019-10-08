@@ -20,9 +20,10 @@ kcidb_export = {
 test_group_db = None
 test_case_db = None
 tests = {}
+environments = {}
 
-def handle_test_group(tg, build, environment, name):
-    global test_group_db, test_case_db, tests
+def handle_test_group(tg, build, name):
+    global test_group_db, test_case_db, tests, environments
 
     name += tg['name']
 
@@ -30,7 +31,23 @@ def handle_test_group(tg, build, environment, name):
     for sg_id in tg['sub_groups']:
         sg_id = str(sg_id)
         for sg in test_group_db.find({'_id': ObjectId(sg_id)}):
-            handle_test_group(sg, build, environment, name + "/")
+            handle_test_group(sg, build, name + "/")
+
+    # test environment
+    env_desc = "/".join([tg['lab_name'], tg['board']])
+    if tg['board_instance']:
+        env_desc += "/" + tg['board_instance']
+    if not env_desc in environments:
+        env = {
+            'description': "kernelci/LAVA_%s" %env_desc,
+            'misc': {
+                key:tg[key] for key in ['arch', 'mach', 'lab_name', 'device_type', 'board', 'board_instance', 'dtb', 'load_addr', 'initrd_addr', 'dtb_addr']
+            }
+        }
+        # FIXME
+        if env['misc']['dtb'] == "None":
+            env['misc']['dtb'] = None
+        environments[env_desc] = env
 
     # then test_cases
     for tc_id in tg['test_cases']:
@@ -47,17 +64,21 @@ def handle_test_group(tg, build, environment, name):
             'build_origin': "kernelci",
             'build_origin_id': build['origin_id'],
 
-            'environment_origin': "kernelci",
-            'environment_origin_id': environment['origin_id'],
-            
             'origin': "kernelci",
             'origin_id': tc_id,
             
+            'environment': {
+                'description': environments[env_desc]['description'],
+                #'misc': {
+                #    key:tg[key] for key in ['arch', 'mach', 'lab_name', 'device_type', 'board', 'board_instance', 'dtb', 'load_addr', 'initrd_addr', 'dtb_addr']
+                #}
+            },
+
             'description': tc_name,
             'status': tc['status'],
             
             'misc': {
-                key:tg[key] for key in ['lab_name', 'board', 'board_instance', 'boot_log']
+                key:tg[key] for key in ['arch', 'mach', 'lab_name', 'device_type', 'board', 'board_instance', 'dtb', 'load_addr', 'initrd_addr', 'dtb_addr', 'boot_log']
             }
         }
 
@@ -75,7 +96,6 @@ def main():
 
     builds = {}
     revisions = {}
-    environments = {}
     
     tg_count = 0
     start_date = datetime.datetime.now()
@@ -158,23 +178,7 @@ def main():
             }
             builds[build_id] = build
 
-        env_desc = "/".join([tg['lab_name'], tg['board']])
-        if tg['board_instance']:
-            env_desc += "/" + tg['board_instance']
-        if not env_desc in environments:
-            env = {
-                'origin': "kernelci",
-                'origin_id': env_desc,
-                'description': env_desc,
-                'misc': {
-                    key:tg[key] for key in ['arch', 'mach', 'device_type', 'board_instance', 'dtb', 'load_addr', 'initrd_addr', 'dtb_addr']
-                }
-            }
-            # FIXME
-            if env['misc']['dtb'] == "None":
-                env['misc']['dtb'] = None
-            environments[env_desc] = env
-        handle_test_group(tg, build, env, "")
+        handle_test_group(tg, build, "")
 
         # For now just send a few results
         tg_count += 1
@@ -185,7 +189,6 @@ def main():
     print("INFO: Stopping after %s test groups, %s test cases" % (tg_count, len(tests)))
     kcidb_export["revisions"] = list(revisions.values())
     kcidb_export["builds"] = list(builds.values())
-    kcidb_export["environments"] = list(environments.values())
     kcidb_export["tests"] = list(tests.values())
     
     fp = open("kernelci.json", "w")
