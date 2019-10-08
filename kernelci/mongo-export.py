@@ -76,12 +76,16 @@ def handle_test_group(tg, build, name):
 
             'description': tc_name,
             'status': tc['status'],
+            'start_time': tc['created_on'].isoformat(),
             
+            #'misc': dict(tc),
             'misc': {
                 key:tg[key] for key in ['arch', 'mach', 'lab_name', 'device_type', 'board', 'board_instance', 'dtb', 'load_addr', 'initrd_addr', 'dtb_addr', 'boot_log']
             }
         }
-
+        # drop non-serializable objects
+        for k in ['_id', 'test_group_id', 'created_on', 'time']:
+            test['misc'].pop(k, None)
         tests[tc_id] = test
     
 def main():
@@ -122,7 +126,6 @@ def main():
         if 'parent_id' in tg and tg['parent_id']:
             continue
 
-        created_on = tg['created_on']
         build_id = str(tg['build_id'])
         build_kci = build_db.find_one({'_id': ObjectId(build_id)})
         #pprint.pprint(build_kci)
@@ -135,9 +138,14 @@ def main():
                 'origin_id': revision_id,
                 'git_repository_url': build_kci['git_url'],
                 'git_repository_commit_hash': build_kci['git_commit'],
+                #'misc': dict(build_kci),
                 'misc': {key:build_kci[key] for key in ['git_branch', 'git_describe']},
+                'discovery_time': build_kci['created_on'].isoformat(),
+                'publishing_time': build_kci['created_on'].isoformat(),
             }
-            revision['misc']['created_on'] = created_on.isoformat(),
+            # remove non-serializable objects
+            for k in ['_id', 'job_id', 'created_on']:
+                revision['misc'].pop(k, None)
             revisions[revision_id] = revision
         
         build_desc = "/".join([build_kci['arch'], build_kci['defconfig_full'], build_kci['compiler'] + '-' + build_kci['compiler_version']])
@@ -153,7 +161,7 @@ def main():
                 'valid': build_kci['status'] == "PASS",
                 'architecture': build_kci['arch'],
                 'log_url': build_kci['build_log'],
-                'start_time': created_on.isoformat(),
+                'start_time': build_kci['created_on'].isoformat(),
                 'duration': build_kci['build_time'],
                 'misc': {
                     key:build_kci[key] for key in [
@@ -182,7 +190,7 @@ def main():
 
         # For now just send a few results
         tg_count += 1
-        #if tg_count >= 100: 
+        #if tg_count >= 1: 
         if len(tests) >= 10000: 
             break
 
