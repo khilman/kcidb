@@ -60,10 +60,7 @@ def handle_test_group(tg, build, environment, name):
                 key:tg[key] for key in ['lab_name', 'board', 'board_instance', 'boot_log']
             }
         }
-        # FIXME: schema doesn't allow SKIP
-        if test['status'] == "SKIP":
-            test['waived'] = True
-            del(test['status']) # missing status field means skip
+
         tests[tc_id] = test
     
 def main():
@@ -82,7 +79,7 @@ def main():
     
     tg_count = 0
     start_date = datetime.datetime.now()
-    start_date = start_date - datetime.timedelta(days=30)
+    start_date = start_date - datetime.timedelta(days=45)
     #filter_expr = None
     filter_expr = {'created_on': {'$gte': start_date}}
 
