@@ -31,7 +31,7 @@ def handle_test_group(tg, build, name):
     for sg_id in tg['sub_groups']:
         sg_id = str(sg_id)
         for sg in test_group_db.find({'_id': ObjectId(sg_id)}):
-            handle_test_group(sg, build, name + "/")
+            handle_test_group(sg, build, name + ".")
 
     # test environment
     env_desc = "/".join([tg['lab_name'], tg['board']])
@@ -54,7 +54,7 @@ def handle_test_group(tg, build, name):
         tc_id = str(tc_id)
         tc = test_case_db.find_one({'_id': ObjectId(tc_id)})
         
-        tc_name = name + '/' + tc['name']
+        tc_name = name + '.' + tc['name']
         print("    T:", tc_name)
         if tc_id in tests:
             print("WARN: test case %s already seen." % tc_id)
